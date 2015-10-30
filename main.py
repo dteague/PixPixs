@@ -2,6 +2,11 @@ def color_num(r, g, b):
     return r+256*g+256**2*b
 
 
+# Algorithm for finding closest color in avaliable colors to the input
+#    Uses pythagorean method first, then if the same, uses ^3 length.
+#
+# TODO: can't deal with pixels same distance away in every axis.  Sets to -1
+#    For now, but needs way to resolve this better
 def closest_color(colors, pixel):
     
     best = (255*3)**2
@@ -43,8 +48,15 @@ def next_color(x, y, im, colors):
         return closest_color(colors, im.getpixel((x-1,y)))
     else:
         return 1
-    
 
+    
+# Takes the initial picture and divides it in to the cells (as well as getting the right
+#     pixel size) and puts this into an array.  The array is set up as such:
+#
+#     pixels[cell in y direction][cell in x direction][pixel in cell][rgb values of pixel]
+#
+#     The pixels in the cell are arraged so all pixels in const row are read, then the next
+#     row of pixels is read.
 def get_cells(im,x_cell, y_cell, x_pix, y_pix):
     new_pix = np.zeros((im.size[1]/y_cell, im.size[0]/x_cell, x_cell*y_cell/(x_pix*y_pix), 3))
 
@@ -69,6 +81,10 @@ def get_grey(pixel):
     return 0.21*pixel[0] + 0.72*pixel[1] + 0.07*pixel[2]
 
 
+# Algorithm for finding best partition of pixels to their colors.  Done
+#    by finding the mean of colors in a partition, then repartitioning
+#    the colors based on the closeness to the new means.  Ends when partition
+#    doesn't change anymore.
 def mean_fit(array, sections, close):
 
     m = np.zeros((sections, len(array[0])))
@@ -84,15 +100,11 @@ def mean_fit(array, sections, close):
             return mean_fit(array, sections-1, fix_closest(close, sections-1, i))
 
     m = [m[i]/float(n[i]) for i in range(sections)]
-    #if not same_test(m):
-
 
     tmp = closest(array,close,m, sections)
     if (tmp != close).any():
         return mean_fit(array, sections, tmp)
-    # else:
-    #     print "yo single?"
-    #     tmp = [int(val) for val in close]
+
 
     listing = []
     listing.append(tmp)
@@ -101,15 +113,8 @@ def mean_fit(array, sections, close):
     return listing
 
 
-def same_test(array):
-
-    test = True
-    for i in range(1,len(array)):
-        test = test and (array[0]==array[i]).all()
-
-    return test
-
-
+# Returns an array with first partioning of pixels in cell.
+#    This is done in a simple even split
 def first_closest(size, sections):
 
     array = np.empty(size)
@@ -121,6 +126,9 @@ def first_closest(size, sections):
     return array
 
 
+# When the number of colors needed in a cell is less the maximum,
+#   this function fixes the partition matrix to send it in with one
+#   one less color
 def fix_closest(close, sections,bad):
     mapping = {}
     for i in range(sections):
@@ -135,6 +143,8 @@ def fix_closest(close, sections,bad):
     return new_closest
 
 
+# Repartitions the pixels based on the average value of the colors
+#   from the previous partition
 def closest(array, close, m, sections):
 
     dif = np.zeros((len(array), sections))
@@ -145,7 +155,7 @@ def closest(array, close, m, sections):
     return close
 
 
-
+# Takes old pix and colors to put the new colors in the pic
 def output_im(im, pixels,x_cell, y_cell, x_pix, y_pix):
     
     picture = im.load()
@@ -162,18 +172,12 @@ def output_im(im, pixels,x_cell, y_cell, x_pix, y_pix):
             for (m,n) in [(m,n) for n in range(0,y_pix) for m in range(0,x_pix)]:
                 picture[x_cell*i + x_pix*k + m , y_cell*j +y_pix*l +n]=(int(pix[0]),int(pix[1]),int(pix[2]))
 
-    
-    # for (i,j) in [(i,j) for j in range(ny_cells) for i in range(nx_cells)]:
-    #     for (x,y) in [(x,y) for y in range(y_cell) for x in range(x_cell)]:
-            
-    #         pix=pixels[j][i][x+y*y_cell]
-
-    #         picture[x_cell*i + x, y_cell*j + y]=(int(pix[0]),int(pix[1]),int(pix[2]))
-
     return im
 
 
-
+######################################################################################################################################################
+############################################################ Start of Main ###########################################################################
+######################################################################################################################################################
 
 com_colors = [(0,0,0),(255,255,255),(136,0,0),(170,255,238),(204,68,204),(0,204,85),(0,0,170),(238,238,119),(221,136,85),(102,68,0),(255,119,119),(51,51,51),(119,119,199),(170,255,102),(0,136,255),(187,187,187)]
 
@@ -190,6 +194,9 @@ import time
 com_num = []
 i=0
 
+#########################################################################
+########## All variables used, change these to change picture! ##########
+#########################################################################
 
 in_name = "ferris.jpg"
 x_size = 320
@@ -202,6 +209,9 @@ tot_cell = x_cell*y_cell/(x_pix*y_pix)
 num_col = 16
 cchoice = 0
 scaling = 4
+
+#########################################################################
+#########################################################################
 
 if x_cell % x_pix != 0:
     print "Error! X_cell and x_pix conflict"
@@ -230,10 +240,6 @@ new_pixels = np.empty((y_size/y_cell, x_size/x_cell, tot_cell, 3))
 
 for i in range(y_size/y_cell):
     for j in range(x_size/x_cell):
-        # if same_test(pixel[i][j]):
-            
-        #new_pixels[i][j] = [colors[cchoice][closest_color(colors[cchoice],pixel[i][j][0])] for k in range(tot_cell)]
-#else:
         cell_info = mean_fit(pixel[i][j],num_col,first_closest(tot_cell, num_col))
         c = [closest_color(colors[cchoice],cell_info[1][k]) for k in range(len(cell_info[1]))]
         new_pixels[i][j]= [colors[cchoice][c[val]] for val in cell_info[0]]
