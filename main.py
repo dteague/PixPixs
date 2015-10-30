@@ -45,14 +45,24 @@ def next_color(x, y, im, colors):
         return 1
     
 
-def get_cells(im):
-    
-    pixels = np.zeros((im.size[1]/8, im.size[0]/8, 64,3))
-    for i in range(im.size[1]/8):
-        for j in range(im.size[0]/8):
-            pixels[i][j] = [im.getpixel((x,y)) for y in range(i*8, (i+1)*8) for x in range(j*8,(j+1)*8)]
+def get_cells(im,x_cell, y_cell, x_pix, y_pix):
+    new_pix = np.zeros((im.size[1]/y_cell, im.size[0]/x_cell, x_cell*y_cell/(x_pix*y_pix), 3))
 
-    return pixels
+    for (i,j) in [(i,j) for j in range(0,im.size[1]/y_cell) for i in range(0,im.size[0]/x_cell)]:
+        for (k,l) in [(k,l) for l in range(0,y_cell/y_pix) for k in range(0,x_cell/x_pix)]:
+            for (m,n) in [(m,n) for n in range(0,y_pix) for m in range(0,x_pix)]:
+                new_pix[j][i][k+x_cell/x_pix*l] += im.getpixel((x_cell*i+x_pix*k+m, y_cell*j+y_pix*l+n)) 
+
+    new_pix = new_pix/(x_pix*y_pix)
+    
+            
+
+    # pixels = np.zeros((im.size[1]/y_cell, im.size[0]/x_cell, x_cell*y_cell,3))
+    # for i in range(im.size[1]/y_cell):
+    #     for j in range(im.size[0]/x_cell):
+    #         pixels[i][j] = [im.getpixel((x,y)) for y in range(i*y_cell, (i+1)*y_cell) for x in range(j*x_cell,(j+1)*x_cell)]
+            
+    return new_pix
 
 
 def get_grey(pixel):
@@ -136,18 +146,29 @@ def closest(array, close, m, sections):
 
 
 
-def output_im(im, pixels,cell_x, cell_y, pix_x, pix_y):
+def output_im(im, pixels,x_cell, y_cell, x_pix, y_pix):
     
     picture = im.load()
-    x_cells = im.size[0]/cell_x
-    y_cells = im.size[1]/cell_y
-    
-    for (i,j) in [(i,j) for j in range(y_cells) for i in range(x_cells)]:
-        for (x,y) in [(x,y) for y in range(cell_y) for x in range(cell_x)]:
-            
-            pix=pixels[j][i][x+y*cell_y]
+    nx_cells = im.size[0]/x_cell
+    ny_cells = im.size[1]/y_cell
 
-            picture[cell_x*i + x, cell_y*j + y]=(int(pix[0]),int(pix[1]),int(pix[2]))
+
+    print im.size[0]
+    print (im.size[0]/x_cell-1)*(x_cell) + x_pix*(x_cell/x_pix-1)+1
+
+    for (i,j) in [(i,j) for j in range(0,im.size[1]/y_cell) for i in range(0,im.size[0]/x_cell)]:
+        for (k,l) in [(k,l) for l in range(0,y_cell/y_pix) for k in range(0,x_cell/x_pix)]:
+            pix=pixels[j][i][k+l*x_cell/x_pix]
+            for (m,n) in [(m,n) for n in range(0,y_pix) for m in range(0,x_pix)]:
+                picture[x_cell*i + x_pix*k + m , y_cell*j +y_pix*l +n]=(int(pix[0]),int(pix[1]),int(pix[2]))
+
+    
+    # for (i,j) in [(i,j) for j in range(ny_cells) for i in range(nx_cells)]:
+    #     for (x,y) in [(x,y) for y in range(y_cell) for x in range(x_cell)]:
+            
+    #         pix=pixels[j][i][x+y*y_cell]
+
+    #         picture[x_cell*i + x, y_cell*j + y]=(int(pix[0]),int(pix[1]),int(pix[2]))
 
     return im
 
@@ -170,17 +191,17 @@ com_num = []
 i=0
 
 
-in_name = "American-Flag-at-Sunset.jpg"
-x_size = 640
-y_size = 400
-x_cell = 8
-y_cell = 8
+in_name = "ferris.jpg"
+x_size = 320
+y_size = 200
+x_cell = 1
+y_cell = 1
 x_pix = 1
 y_pix = 1
-tot_cell = x_cell*y_cell
-num_col = 4
+tot_cell = x_cell*y_cell/(x_pix*y_pix)
+num_col = 16
 cchoice = 0
-scaling = 2
+scaling = 4
 
 if x_cell % x_pix != 0:
     print "Error! X_cell and x_pix conflict"
@@ -204,18 +225,18 @@ im=Image.open(in_name)
 im = im.resize((x_size, y_size), Image.BILINEAR)
 
 start = time.time()
-pixel = get_cells(im)
+pixel = get_cells(im,x_cell, y_cell,x_pix,y_pix)
 new_pixels = np.empty((y_size/y_cell, x_size/x_cell, tot_cell, 3))
 
 for i in range(y_size/y_cell):
     for j in range(x_size/x_cell):
-        if same_test(pixel[i][j]):
+        # if same_test(pixel[i][j]):
             
-            new_pixels[i][j] = [colors[cchoice][closest_color(colors[cchoice],pixel[i][j][0])] for k in range(tot_cell)]
-        else:
-            cell_info = mean_fit(pixel[i][j],num_col,first_closest(tot_cell, num_col))
-            c = [closest_color(colors[cchoice],cell_info[1][k]) for k in range(len(cell_info[1]))]
-            new_pixels[i][j]= [colors[cchoice][c[val]] for val in cell_info[0]]
+        #new_pixels[i][j] = [colors[cchoice][closest_color(colors[cchoice],pixel[i][j][0])] for k in range(tot_cell)]
+#else:
+        cell_info = mean_fit(pixel[i][j],num_col,first_closest(tot_cell, num_col))
+        c = [closest_color(colors[cchoice],cell_info[1][k]) for k in range(len(cell_info[1]))]
+        new_pixels[i][j]= [colors[cchoice][c[val]] for val in cell_info[0]]
 
 im = output_im(im,new_pixels,x_cell,y_cell, x_pix, y_pix)
 im = im.resize((x_size*scaling, y_size*scaling), Image.BILINEAR)
